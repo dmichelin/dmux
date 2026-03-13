@@ -8,6 +8,7 @@ const pty = require("node-pty");
 const panes = new Map();
 let mainWindow = null;
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const projectRoot = path.join(__dirname, "..");
 
 loadDotEnv();
@@ -248,23 +249,32 @@ function parseJsonResponse(text) {
   return JSON.parse(candidate);
 }
 
-async function suggestAiCommands(_, { paneId, paneName, prompt, recentOutput }) {
-  const paneRecord = panes.get(paneId);
-  if (!paneRecord) {
-    throw new Error("The focused pane is no longer available.");
-  }
+function getAiProvider() {
+  return (process.env.DMUX_AI_PROVIDER || "openai").trim().toLowerCase();
+}
 
-  if (!prompt?.trim()) {
-    throw new Error("Enter a request for the AI command assistant.");
-  }
+function buildAiMessages(paneRecord, paneName, cwd, prompt, recentOutput) {
+  return {
+    system:
+      "You translate natural language into terminal commands. Return strict JSON with a top-level suggestions array. Each suggestion must have command and explanation. Commands must be plain shell commands with no markdown fences, no leading prompt symbol, and no trailing newline. Prefer safe, inspectable commands when the request is ambiguous or potentially destructive. Use the provided shell, cwd, pane name, and recent terminal output as context.",
+    context: {
+      pane_name: paneName,
+      shell: paneRecord.shell,
+      cwd,
+      recent_terminal_output: recentOutput,
+      request: prompt
+    }
+  };
+}
 
+async function requestOpenAiSuggestions(paneRecord, paneName, cwd, prompt, recentOutput) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    throw new Error("Set OPENAI_API_KEY before using AI command suggestions.");
+    throw new Error("Set OPENAI_API_KEY before using the OpenAI backend.");
   }
 
-  const cwd = getPaneCurrentCwd(paneRecord) || paneRecord.cwd;
   const model = process.env.DMUX_OPENAI_MODEL || process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const aiPrompt = buildAiMessages(paneRecord, paneName, cwd, prompt, recentOutput);
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
     headers: {
@@ -280,18 +290,11 @@ async function suggestAiCommands(_, { paneId, paneName, prompt, recentOutput }) 
       messages: [
         {
           role: "system",
-          content:
-            "You translate natural language into terminal commands. Return strict JSON with a top-level suggestions array. Each suggestion must have command and explanation. Commands must be plain shell commands with no markdown fences, no leading prompt symbol, and no trailing newline. Prefer safe, inspectable commands when the request is ambiguous or potentially destructive. Use the provided shell, cwd, pane name, and recent terminal output as context."
+          content: aiPrompt.system
         },
         {
           role: "user",
-          content: JSON.stringify({
-            pane_name: paneName,
-            shell: paneRecord.shell,
-            cwd,
-            recent_terminal_output: recentOutput,
-            request: prompt
-          })
+          content: JSON.stringify(aiPrompt.context)
         }
       ]
     })
@@ -303,7 +306,80 @@ async function suggestAiCommands(_, { paneId, paneName, prompt, recentOutput }) 
   }
 
   const data = await response.json();
-  const content = data.choices?.[0]?.message?.content || "";
+  return {
+    provider: "openai",
+    model,
+    content: data.choices?.[0]?.message?.content || ""
+  };
+}
+
+async function requestAnthropicSuggestions(paneRecord, paneName, cwd, prompt, recentOutput) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error("Set ANTHROPIC_API_KEY before using the Anthropic backend.");
+  }
+
+  const model =
+    process.env.DMUX_ANTHROPIC_MODEL || process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest";
+  const aiPrompt = buildAiMessages(paneRecord, paneName, cwd, prompt, recentOutput);
+  const response = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 800,
+      temperature: 0.2,
+      system: aiPrompt.system,
+      messages: [
+        {
+          role: "user",
+          content: JSON.stringify(aiPrompt.context)
+        }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic request failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const content = Array.isArray(data.content)
+    ? data.content
+        .filter((item) => item.type === "text")
+        .map((item) => item.text)
+        .join("\n")
+    : "";
+
+  return {
+    provider: "anthropic",
+    model,
+    content
+  };
+}
+
+async function suggestAiCommands(_, { paneId, paneName, prompt, recentOutput }) {
+  const paneRecord = panes.get(paneId);
+  if (!paneRecord) {
+    throw new Error("The focused pane is no longer available.");
+  }
+
+  if (!prompt?.trim()) {
+    throw new Error("Enter a request for the AI command assistant.");
+  }
+
+  const cwd = getPaneCurrentCwd(paneRecord) || paneRecord.cwd;
+  const provider = getAiProvider();
+  const result =
+    provider === "anthropic"
+      ? await requestAnthropicSuggestions(paneRecord, paneName, cwd, prompt, recentOutput)
+      : await requestOpenAiSuggestions(paneRecord, paneName, cwd, prompt, recentOutput);
+  const content = result.content;
   const parsed = parseJsonResponse(content);
   const suggestions = Array.isArray(parsed.suggestions)
     ? parsed.suggestions
@@ -321,7 +397,8 @@ async function suggestAiCommands(_, { paneId, paneName, prompt, recentOutput }) 
 
   return {
     ok: true,
-    model,
+    provider: result.provider,
+    model: result.model,
     pane: {
       shell: paneRecord.shell,
       cwd

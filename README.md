@@ -52,9 +52,19 @@ cp .env.example .env
 Set your OpenAI key in `.env`:
 
 ```env
+DMUX_AI_PROVIDER=openai
 OPENAI_API_KEY=your_openai_api_key_here
 # Optional:
 # DMUX_OPENAI_MODEL=gpt-4.1-mini
+```
+
+Or use Anthropic instead:
+
+```env
+DMUX_AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+# Optional:
+# DMUX_ANTHROPIC_MODEL=claude-3-5-sonnet-latest
 ```
 
 Then start the app:
@@ -152,7 +162,7 @@ The AI command assistant currently:
 
 Current implementation note:
 
-- it uses `OPENAI_API_KEY` from `.env`
+- it supports `openai` or `anthropic` via `.env`
 - OAuth is not implemented
 
 ## Current Limitations
