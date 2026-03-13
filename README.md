@@ -9,10 +9,10 @@
 If you just want the app set up on a Mac, run this:
 
 ```bash
-./scripts/setup-mac.sh
+make build
 ```
 
-It installs dependencies if needed, builds `dmux.app`, and links it to `/Applications/dmux.app`.
+On macOS, that installs dependencies if needed, builds `dmux.app`, and links it to `/Applications/dmux.app`.
 
 ## What It Does
 
