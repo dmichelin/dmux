@@ -2,6 +2,8 @@
 
 `dmux` is a desktop terminal multiplexer with split panes, sessions, mouse resizing, Vim-style controls, and a pane-aware AI command assistant.
 
+![dmux screenshot](./header.png)
+
 ## Mac Setup
 
 If you just want the app set up on a Mac, run this:
