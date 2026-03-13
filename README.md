@@ -179,4 +179,4 @@ Current implementation note:
 
 ## License
 
-Add your preferred license here before publishing.
+[MIT](./LICENSE)
