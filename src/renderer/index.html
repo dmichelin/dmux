@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dmux</title>
+    <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <h1>dmux</h1>
+        </div>
+        <div class="session-strip">
+          <div id="sessions" class="session-tabs"></div>
+          <button id="new-session" class="chrome-button" type="button" title="New session (Ctrl-b c)">+</button>
+        </div>
+      </header>
+
+      <main id="workspace" class="workspace"></main>
+      <section id="ai-overlay" class="ai-overlay" hidden>
+        <div class="ai-panel">
+          <div class="ai-panel-header">
+            <strong>AI command</strong>
+            <span id="ai-context" class="ai-context"></span>
+          </div>
+          <textarea
+            id="ai-prompt"
+            class="ai-prompt"
+            rows="3"
+            placeholder="Describe what you want to do in this pane"
+          ></textarea>
+          <div id="ai-meta" class="ai-meta">Enter: ask model. Esc: cancel.</div>
+          <div id="ai-results" class="ai-results"></div>
+        </div>
+      </section>
+
+      <footer class="statusbar">
+        <div id="status-left"></div>
+        <div class="status-hints">
+          <span>`C-b` prefix</span>
+          <span>`hjkl` `HJKL`</span>
+          <span>`C-a` AI</span>
+        </div>
+      </footer>
+    </div>
+
+    <script src="../../node_modules/@xterm/xterm/lib/xterm.js"></script>
+    <script src="../../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
