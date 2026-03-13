@@ -398,6 +398,7 @@ function renderPane(paneId, sessionId) {
       ${titleMarkup}
     </div>
     <div class="pane-actions">
+      <button class="pane-button" type="button" data-action="ask-ai" title="Ask AI (Ctrl-a)">AI</button>
       <button class="pane-button" type="button" data-action="split-vertical" title="Split vertical (Ctrl-b |)">|</button>
       <button class="pane-button" type="button" data-action="split-horizontal" title="Split horizontal (Ctrl-b -)">-</button>
       <button class="pane-button" type="button" data-action="close" title="Close pane (Ctrl-b x)">x</button>
@@ -446,7 +447,9 @@ function renderPane(paneId, sessionId) {
 
     event.stopPropagation();
     focusedPaneId = paneId;
-    if (button.dataset.action === "split-vertical") {
+    if (button.dataset.action === "ask-ai") {
+      openAiOverlay();
+    } else if (button.dataset.action === "split-vertical") {
       splitFocusedPane("row");
     } else if (button.dataset.action === "split-horizontal") {
       splitFocusedPane("column");
